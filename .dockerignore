@@ -1,0 +1,10 @@
+# .dockerignore file content
+.git
+.venv
+venv
+__pycache__
+node_modules
+*.log
+.vscode
+.virtualenv
+virtualenv
