@@ -11,5 +11,10 @@ Retrieve only 1 cve, send message to rabbitmq, and go app will consume message a
 Plan 2:
 Update python to retry to connect to rabbitmq if failed the first time
 
+Plan 3:
+Combine the python project repo and go project repo on github
+
+
+
 
 
