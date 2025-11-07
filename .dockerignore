@@ -1,0 +1,26 @@
+# ==================================
+# VS Code / IDE Specific Exclusions
+# ==================================
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+
+# ==================================
+# Version Control
+# ==================================
+.git
+.gitignore
+
+# ==================================
+# Go Specific Build Artifacts
+# ==================================
+# The local Go build cache
+.cache
+
+
+# ==================================
+# OS generated files
+# ==================================
+.DS_Store
+Thumbs.db
