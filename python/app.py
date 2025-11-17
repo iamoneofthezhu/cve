@@ -7,6 +7,7 @@ import json
 import logging
 import aiohttp
 import sys
+from datetime import date
 
 class App:
     
@@ -31,15 +32,17 @@ class App:
 
     logger.info("This should show up in docker logs for python-cve service")
 
-    async def get_vulnerabilities(self):
+    async def get_vulnerabilities(self, publishDateRangeStart, publishDateRangeEnd):
     #url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
         url = "https://nvd.nist.gov/extensions/nudp/services/json/nvd/cve/search/results"
         params = {
-            "resultType": "records",
+            "resultType": "records",            
+            "offset": "0",
+            #"rowCount": "25",
+            "publishDateRangeStart": publishDateRangeStart,
+            "publishDateRangeEnd": publishDateRangeEnd,
             "sortOrder": "3",
             "sortDirection": "2",
-            "offset": "0",
-            "rowCount": "25"
         }
         App.logger.info("url is : " + url)
 
@@ -51,7 +54,6 @@ class App:
             "Referer": "https://nvd.nist.gov/vuln/search",
             "X-Requested-With": "XMLHttpRequest"
         }
-
 
         App.logger.info(f"Sending request to NVD API: {url} with params: {params}")
         #response = requests.get(url, params=params, headers=headers)
@@ -158,7 +160,9 @@ class App:
 async def main():
     app = App()
     await app.getRabbitMQConnection()
-    await app.get_vulnerabilities()
+
+    today = date.today().strftime("%Y-%m-%d")
+    await app.get_vulnerabilities(today, today)
 
 if __name__ == "__main__":
     asyncio.run(main())
