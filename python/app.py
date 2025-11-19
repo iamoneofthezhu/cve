@@ -58,16 +58,7 @@ class App:
         return params
 
     def get_vulnerabilities(self, publishDateRangeStart, publishDateRangeEnd, params):
-       # url = "https://nvd.nist.gov/extensions/nudp/services/json/nvd/cve/search/results"
-        # params = {
-        #     "resultType": "records",            
-        #     "offset": offset,
-        #     "rowCount": "50", #doesn't seem to make a difference. Api always returns 25 records at a time
-        #     "publishDateRangeStart": publishDateRangeStart,
-        #     "publishDateRangeEnd": publishDateRangeEnd,
-        #     "sortOrder": "3",
-        #     "sortDirection": "2",
-        # }
+     
         App.logger.info("url is : " + self.CVE_URL)
 
         #spoofing the headers to mimic a browser request for now
@@ -76,12 +67,7 @@ class App:
 
         App.logger.info(f"Sending request to NVD API: {self.CVE_URL} with params: {params}")
         response = requests.get(self.CVE_URL, params=params, headers=self.HEADERS)
-        #async with aiohttp.ClientSession() as session:
-            # async with session.get(self.CVE_URL, params=params, headers=self.HEADERS) as response:
-            #     if response.status == 200:
-            #         data = await response.json()
-            #         App.logger.info(f"Response Status Code: {response.status}")
-
+       
         data = self.executeGetAndReturnResult(response, params)
 
         if(len(data) > 0):
@@ -89,49 +75,26 @@ class App:
             totalPages = math.ceil(totalRecords / 25)
             App.logger.info(f"Total records: {totalRecords}")
 
-          #  vulnerabilities = data["response"][0]["grid"]["vulnerabilities"]
-          #  loop = asyncio.get_event_loop()
-            #loop.run_until_complete(asyncio.to_thread(self.extractVulnerabilitiesAndSendToRabbitMQ(data)))
             asyncio.run(asyncio.to_thread(lambda: self.extractVulnerabilitiesAndSendToRabbitMQ(data)))
+
             for page in range(1, totalPages):
                 params = self.setParams(publishDateRangeStart, publishDateRangeEnd, page * 25)
                 response = requests.get(self.CVE_URL, params=params, headers=self.HEADERS)
                 asyncio.run(asyncio.to_thread(lambda: self.executeGetAndExtractData(response, params)))
 
-                        # data = self.executeGetAndReturnResults(self, session, params)
-                        # vulnerabilities = data["response"][0]["grid"]["vulnerabilities"]
-
-                        # asyncio.run(self.extractVulnerabilitiesAndSendToRabbitMQ(self, vulnerabilities))
-
-                   
-                    # vulnerabilities = data["response"][0]["grid"]["vulnerabilities"]
-
-                    # for vulnerability in vulnerabilities:
-                    #     oneCve = vulnerability["cve"]
-                    #     App.logger.info(f"One CVE is : {oneCve['id']} - {oneCve['descriptions'][0]['value']}")
-                    #     App.logger.info("--------")
-                    #     App.logger.info(oneCve)
-                    #     #asyncio.run(sendMsgRabbitMQ(oneCve))
-                    #     await self.sendMsgRabbitMQ(oneCve)
-                # else:
-                #     App.logger.error(f"Failed to retrieve data from NVD API: {response.status}")
-                #     return []
     def executeGetAndExtractData(self, response, params):
-       # with aiohttp.ClientSession() as session:
         print(f"[executeGetAndExtractData] Running in thread: {threading.current_thread().name}")
         data = self.executeGetAndReturnResult(response, params)
         self.extractVulnerabilitiesAndSendToRabbitMQ(data)
 
     def executeGetAndReturnResult(self, response, params):
-        #async with aiohttp.ClientSession() as session:
-            #with session.get(self.CVE_URL, params=params, headers=self.HEADERS) as response:
-                if response.status_code == 200:
-                    data = response.json()
-                    App.logger.info(f"Response Status Code: {response.status_code}")
-                    return data
-                else:
-                    App.logger.error(f"Failed to retrieve data from NVD API: {response.status_code}")
-                    return []
+        if response.status_code == 200:
+            data = response.json()
+            App.logger.info(f"Response Status Code: {response.status_code}")
+            return data
+        else:
+            App.logger.error(f"Failed to retrieve data from NVD API: {response.status_code}")
+            return []
 
 
 
@@ -144,7 +107,6 @@ class App:
         App.logger.info(f"One CVE is : {oneCve['id']} - {oneCve['descriptions'][0]['value']}")
         App.logger.info("--------")
         App.logger.info(oneCve)
-          #asyncio.run(sendMsgRabbitMQ(oneCve))
         self.sendMsgRabbitMQ(oneCve)
 
     # Connect to RabbitMQ and create queue
@@ -194,7 +156,6 @@ class App:
 
     # Send message to RabbitMQ
     def sendMsgRabbitMQ(self, message: str):
-        #connection, channel, queue = await getRabbitMQConnection()
         App.logger.info("message to rabbitmq is : " + str(message))
         if not App.connection:
             App.logger.error("Failed to connect to RabbitMQ. Message not sent.")
@@ -210,15 +171,13 @@ class App:
                 routing_key=App.queue.method.queue,
                 body=message_body,
                 properties=pika.BasicProperties(
-                    delivery_mode=pika.DeliveryMode.Persistent, # Note the uppercase 'P' in Persistent
-                    content_type='application/json' # Good practice to specify content type
+                    delivery_mode=pika.DeliveryMode.Persistent,
+                    content_type='application/json' # good to specify content type
                 )
             )
             App.logger.info(f"Message sent to RabbitMQ: {message}")
         except Exception as e:
             App.logger.error(f"Failed to send message to RabbitMQ: {e}")
-       # finally:
-             #consider moving this to main so we don't close connection after every message
 
 
 def main():
