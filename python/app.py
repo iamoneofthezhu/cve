@@ -1,28 +1,15 @@
 import asyncio
-import os
 from pdb import run
 import threading
-from aiormq import AMQPConnectionError
 import requests
-import aio_pika
-import json
 import logging
-import aiohttp
 import sys
-from datetime import date
+from datetime import date, timedelta
 import math
-import pika
+from rabbitmq import RabbitMQClient
 
 class App:
     
-    connection = None
-    channel = None
-    queue = None
-
-    # Read the host from the environment variable; default to 'localhost' for local testing
-    RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-    CONNECTION_URL = f"amqp://guest:guest@{RABBITMQ_HOST}/"
-
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
@@ -33,10 +20,12 @@ class App:
     logger.addHandler(handler)
     logger.propagate = False
 
-
     logger.info("This should show up in docker logs for python-cve service")
 
     CVE_URL = "https://nvd.nist.gov/extensions/nudp/services/json/nvd/cve/search/results"
+    
+    def __init__(self):
+        self.rabbitmq_client = RabbitMQClient()
 
     HEADERS = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -85,6 +74,7 @@ class App:
     def executeGetAndExtractData(self, response, params):
         print(f"[executeGetAndExtractData] Running in thread: {threading.current_thread().name}")
         data = self.executeGetAndReturnResult(response, params)
+        App.logger.info(f"executeGetAndExtractData data size is :{len(data)}")
         self.extractVulnerabilitiesAndSendToRabbitMQ(data)
 
     def executeGetAndReturnResult(self, response, params):
@@ -100,6 +90,7 @@ class App:
 
     def extractVulnerabilitiesAndSendToRabbitMQ(self, data):
         print(f"[extractVulnerabilitiesAndSendToRabbitMQ] Running in thread: {threading.current_thread().name}")
+        App.logger.info(f"extractVulnerabilitiesAndSendToRabbitMQ data size is :{len(data)}")
         vulnerabilities = data["response"][0]["grid"]["vulnerabilities"]
       #  for vulnerability in vulnerabilities:
            # oneCve = vulnerability["cve"]
@@ -107,89 +98,24 @@ class App:
         App.logger.info(f"One CVE is : {oneCve['id']} - {oneCve['descriptions'][0]['value']}")
         App.logger.info("--------")
         App.logger.info(oneCve)
-        self.sendMsgRabbitMQ(oneCve)
-
-    # Connect to RabbitMQ and create queue
-    def getRabbitMQConnection(self):
-        max_retries = 6
-        retry_delay = 1 # seconds
-        attempts = 0
-
-        while attempts < max_retries: #retries up to max_retries times
-            try:
-                App.logger.info(f"yalin retry delay is : {retry_delay} seconds")
-                App.logger.info(f"Connecting to: {App.CONNECTION_URL}")
-                
-                App.connection = pika.BlockingConnection(pika.URLParameters(App.CONNECTION_URL))
-                App.logger.info("Connection established successfully.")
-
-                
-                App.channel = App.connection.channel()
-                App.logger.info("Channel created.")
-
-                #Declare a queue
-                App.queue = App.channel.queue_declare("cve_queue", durable=True)
-                App.logger.info(f"Queue 'cve_queue' declared.")
-
-                # If all the above succeeds, we can return the objects
-                return App.connection, App.channel, App.queue
-
-            except (ConnectionError, AMQPConnectionError) as e:
-                App.logger.error(f"yalin: {e}")  
-                attempts += 1
-                if attempts < max_retries:
-                    App.logger.warning(f"Failed to connect to RabbitMQ: {e}. Retrying in {retry_delay} second(s)...")
-                    asyncio.sleep(retry_delay)
-                else:
-                    App.logger.error(f"Failed to connect to RabbitMQ after {max_retries} attempts.")
-                    raise # Re-raise the final error after max retries are hit
-
-            except Exception as e:
-                App.logger.error(f"yalin2: {e}")  
-                App.logger.critical(f"An unexpected error occurred: {e}")
-                App.logger.critical("Exiting due to unexpected error.")
-                # If an unexpected error occurs (like a channel declaration issue), re-raise it
-                raise
-
-        # This part should be unreachable if 'raise' is used correctly, but good practice to have
-        return None, None, None 
-
-    # Send message to RabbitMQ
-    def sendMsgRabbitMQ(self, message: str):
-        App.logger.info("message to rabbitmq is : " + str(message))
-        if not App.connection:
-            App.logger.error("Failed to connect to RabbitMQ. Message not sent.")
-            asyncio.sleep(5)
-            if not App.connection:
-                App.logger.error("Still not connected to RabbitMQ after waiting.")
-            return
-
-        try:
-            message_body = json.dumps(message).encode('utf-8')
-            App.channel.basic_publish(
-                exchange='', # Often empty string for default exchange
-                routing_key=App.queue.method.queue,
-                body=message_body,
-                properties=pika.BasicProperties(
-                    delivery_mode=pika.DeliveryMode.Persistent,
-                    content_type='application/json' # good to specify content type
-                )
-            )
-            App.logger.info(f"Message sent to RabbitMQ: {message}")
-        except Exception as e:
-            App.logger.error(f"Failed to send message to RabbitMQ: {e}")
+        self.rabbitmq_client.sendMsgRabbitMQ(oneCve)
 
 
 def main():
     app = App()
     try:
-        app.getRabbitMQConnection()
+        app.rabbitmq_client.getRabbitMQConnection()
 
-        today = date.today().strftime("%Y-%m-%d")
-        params = app.setParams(today, today, 0)
-        app.get_vulnerabilities(today, today, params)
+        #query_date = date.today().strftime("%Y-%m-%d")
+        #todo: using yesterday's date to avoid problem with calling API with tomorrow's date. There's no data for tomorrow's date.
+        # This is bec base python image in Docker uses UTC and date.today() would return tomorrow's date sometimes        
+        #Need to decide if want to set Docker image to use EST
+        query_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d") 
+        params = app.setParams(query_date, query_date, 0)
+        app.get_vulnerabilities(query_date, query_date, params)
     finally:
-       App.connection.close() 
+       if RabbitMQClient.CONNECTION:
+           RabbitMQClient.CONNECTION.close() 
 
 if __name__ == "__main__":
     main()

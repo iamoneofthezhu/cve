@@ -15,7 +15,21 @@ Plan 3:
 Combine the python project repo and go project repo on github
 
 Plan 4:
-Optimize Python code to scrape all CVEs that are published today on multiple pages
+Optimize Python code to scrape all CVEs that are published today on multiple pages; use one thread per page to extract cve.
+Extract one cve per page returned. Make sure multi threads work first.
+
+Plan 5: 
+Organize Python code and create modules instead of having all logic in app.py
+
+Plan 6:
+Configure MongoDB and have it run as a separate service in docker
+
+Plan 7:
+Extract the data Go retrieves from the queue and inserts wanted data into MongoDB
+
+Plan 8:
+Separate the rabbitmq and Get requests logic in python app.py into separate modules
+
 
 
 
