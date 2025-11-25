@@ -27,8 +27,6 @@ Configure MongoDB and have it run as a separate service in docker
 Plan 7:
 Extract the data Go retrieves from the queue and inserts wanted data into MongoDB
 
-Plan 8:
-Separate the rabbitmq and Get requests logic in python app.py into separate modules
 
 
 
