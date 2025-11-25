@@ -114,8 +114,8 @@ def main():
         params = app.setParams(query_date, query_date, 0)
         app.get_vulnerabilities(query_date, query_date, params)
     finally:
-       if RabbitMQClient.CONNECTION:
-           RabbitMQClient.CONNECTION.close() 
+       if RabbitMQClient.connection:
+           RabbitMQClient.connection.close() 
 
 if __name__ == "__main__":
     main()
