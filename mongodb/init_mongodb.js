@@ -48,10 +48,11 @@ if (!targetDb.getCollectionNames().includes("cve_collection")) {
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["cve_id", "published", "status", "description"],
+        required: ["id", "published", "last_modified", "status", "description"],
         properties: {
-          cve_id: { bsonType: "string" },
+          id: { bsonType: "string" },
           published: { bsonType: "string" },
+          last_modified: { bsonType: "string" },
           status: { bsonType: "string" },
           description: { bsonType: "string" },
           cvss: {
@@ -63,17 +64,20 @@ if (!targetDb.getCollectionNames().includes("cve_collection")) {
                   "base_score": { bsonType: "number" },
                   "severity": { bsonType: "string" },
                   "vector": { bsonType: "string" },
-                  "exploitability": { bsonType: "number" },
-                  "impact": { bsonType: "number" }
+                  "attack_vector": { bsonType: "string" },
+                  "exploitability_score": { bsonType: "number" },
+                  "impact_score": { bsonType: "number" }
                 }
               },
               "v40": {
                 bsonType: "object",
                 properties: {
+                  "source": { bsonType: "string" },
+                  "type": { bsonType: "string" },
                   "base_score": { bsonType: "number" },
                   "severity": { bsonType: "string" },
                   "vector": { bsonType: "string" },
-                  "exploitability": { bsonType: "number" }
+                  "attack_vector": { bsonType: "string" }
                 }
               }
             }
