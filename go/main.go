@@ -40,6 +40,7 @@ type CVE_OUTPUT struct {
 }
 
 type CVSS struct {
+	CvssMetricV30 *[]CVSSMetricV31 `json:"cvssMetricV30,omitempty" bson:"cvssMetricV30,omitempty"`
 	CvssMetricV31 *[]CVSSMetricV31 `json:"cvssMetricV31,omitempty" bson:"cvssMetricV31,omitempty"`
 	CVSSMetricV40 *[]CVSSMetricV40 `json:"cvssMetricV40,omitempty" bson:"cvssMetricV40,omitempty"`
 }
