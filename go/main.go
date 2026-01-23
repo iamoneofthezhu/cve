@@ -46,27 +46,21 @@ type CVSS struct {
 }
 
 type CVSSMetricV31 struct {
-	CVSS31Data          CVSS31Data `json:"cvssData" bson:"cvssData"`
-	ExploitabilityScore float64    `json:"exploitabilityScore" bson:"exploitabilityScore"`
-	ImpactScore         float64    `json:"impactScore" bson:"impactScore"`
+	CVSSData            CVSSData `json:"cvssData" bson:"cvssData"`
+	ExploitabilityScore float64  `json:"exploitabilityScore" bson:"exploitabilityScore"`
+	ImpactScore         float64  `json:"impactScore" bson:"impactScore"`
 }
-type CVSS31Data struct {
+type CVSSData struct {
 	BaseScore    float64 `json:"baseScore" bson:"baseScore"`
 	Severity     string  `json:"baseSeverity" bson:"baseSeverity"`
-	Vector       string  `json:"vector" bson:"vector"`
+	Vector       string  `json:"vectorString" bson:"vectorString"`
 	AttackVector string  `json:"attackVector" bson:"attackVector"`
 }
 
 type CVSSMetricV40 struct {
-	Source     string     `json:"source" bson:"source"`
-	Type       string     `json:"type" bson:"type"`
-	CVSS40Data CVSS40Data `json:"cvssData" bson:"cvssData"`
-}
-type CVSS40Data struct {
-	BaseScore    float64 `json:"baseScore" bson:"baseScore"`
-	Severity     string  `json:"baseSeverity" bson:"baseSeverity"`
-	Vector       string  `json:"vector" bson:"vector"`
-	AttackVector string  `json:"attackVector" bson:"attackVector"`
+	Source     string   `json:"source" bson:"source"`
+	Type       string   `json:"type" bson:"type"`
+	CVSS40Data CVSSData `json:"cvssData" bson:"cvssData"`
 }
 
 type WeaknessDescription struct {
