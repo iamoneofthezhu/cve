@@ -1,0 +1,31 @@
+services:
+  mongo:
+    image: mongo:8.2.2
+    ports:
+      - "27017:27017"
+    environment:
+      # 1. Define the temporary Root User credentials (using secure _FILE variables)
+      MONGO_INITDB_ROOT_USERNAME_FILE: /etc/mongo/db_admin_username.txt
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /etc/mongo/db_admin_password.txt
+
+      # 2. Define the Non-Root Application User credentials (using secure _FILE variables)
+      CVE_DB_USER_FILE: /etc/mongo/db_user_username.txt
+      CVE_DB_PASSWORD_FILE: /etc/mongo/db_user_password.txt
+
+    volumes:
+      # Mount the initialization script
+      - ./init_mongodb.js:/docker-entrypoint-initdb.d/init-mongodb.js:ro
+      
+      # Mount the credential files from your host secrets directory
+      - ../secrets/mongoDB_admin_username.txt:/etc/mongo/db_admin_username.txt:ro
+      - ../secrets/mongoDB_admin_password.txt:/etc/mongo/db_admin_password.txt:ro
+      - ../secrets/mongoDB_user_username.txt:/etc/mongo/db_user_username.txt:ro
+      - ../secrets/mongoDB_user_password.txt:/etc/mongo/db_user_password.txt:ro
+
+      # Optional: data volume for persistence
+      - mongo-data:/data/db
+      
+
+volumes:
+  mongo-data:
+    driver: local
