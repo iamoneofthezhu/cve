@@ -48,13 +48,18 @@ if (!targetDb.getCollectionNames().includes("cve_collection")) {
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["id", "published", "last_modified", "status", "description"],
+        required: ["cve_id", "published", "last_modified", "status", "description"],
         properties: {
-          id: { bsonType: "string" },
+          cve_id: { bsonType: "string" },
           published: { bsonType: "string" },
           last_modified: { bsonType: "string" },
           status: { bsonType: "string" },
-          description: { bsonType: "string" },
+          description: { 
+            bsonType: "array",
+            items: {
+              bsonType: "string"
+            }
+          },
           cvss: {
             bsonType: "object",
             properties: {
