@@ -4,12 +4,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/rabbitmq/amqp091-go"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type CVE struct {
@@ -29,11 +35,11 @@ type Description struct {
 }
 
 type CVE_OUTPUT struct {
-	ID           string      `json:"id" bson:"id"`
+	ID           string      `json:"cve_id" bson:"cve_id"`
 	Published    string      `json:"published" bson:"published"`
 	LastModified string      `json:"last_modified" bson:"last_modified"`
-	Status       string      `json:"vulnStatus" bson:"vulnStatus"`
-	Descriptions []string    `json:"descriptions" bson:"descriptions"`
+	Status       string      `json:"status" bson:"status"`
+	Descriptions []string    `json:"description" bson:"description"`
 	Metrics      CVSS        `json:"metrics" bson:"metrics"`
 	Weaknesses   []string    `json:"weaknesses" bson:"weaknesses"`
 	References   []Reference `json:"references" bson:"references"`
@@ -121,6 +127,51 @@ func convertToNewCveJson(cve CVE) CVE_OUTPUT {
 	return updated_cve
 }
 
+func getSecret(pathEnv string) string {
+	log.Printf("secret pathenv is %s\n", pathEnv)
+
+	filePath := os.Getenv(pathEnv)
+	log.Printf("secret filePath is %s\n", filePath)
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Printf("Could not read secret file: %v", err)
+		return ""
+	}
+	log.Printf("Get Secret %s\n", strings.TrimSpace(string(content)))
+	return strings.TrimSpace(string(content))
+}
+
+func sendJsonToMongoDB(cve CVE_OUTPUT) {
+	fmt.Println("inside sendJsonToMongoDB!")
+	rootUserName := getSecret("MONGO_ROOT_USERNAME_FILE")
+	rootPassword := getSecret("MONGO_ROOT_PASSWORD_FILE")
+
+	// 1. Setup connection
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(options.Client().ApplyURI("mongodb://mongo:27017").
+		SetAuth(options.Credential{AuthSource: "admin", //need this since user in admin db
+			Username: rootUserName, Password: rootPassword}))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Disconnect(ctx)
+
+	collection := client.Database("web_scraper_db").Collection("cve_collection")
+	res, err := collection.InsertOne(ctx, cve)
+	data, _ := bson.MarshalExtJSON(cve, true, false)
+	fmt.Println(string(data))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Inserted document ID: %v\n", res.InsertedID)
+}
+
 func main() {
 	fmt.Println("Hello, World!")
 	rabbitmqHost, exists := os.LookupEnv("RABBITMQ_HOST")
@@ -203,6 +254,9 @@ func main() {
 		log.Printf("  Weaknesses count: %d", len(result.Weaknesses))
 		log.Printf("  References count: %d", len(result.References))
 		log.Printf("Full CVE struct: %+v", result)
+
+		sendJsonToMongoDB(result)
+
 		break // exit after first message
 	}
 
