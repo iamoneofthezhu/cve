@@ -28,7 +28,7 @@ Plan 7:
 Extract the data Go retrieves from the queue and inserts wanted data into MongoDB
 
 Plan 8:
-Refactor code to separate business logic
+Refactor Go code to separate business logic
 
 
 
