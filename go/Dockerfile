@@ -14,7 +14,7 @@ COPY . .
 
 # Build the Go application, outputting a static binary named 'app'
 # CGO_ENABLED=0 ensures a statically linked binary compatible with 'scratch'
-RUN CGO_ENABLED=0 go build -o /app/app ./...
+RUN CGO_ENABLED=0 go build -o /app/app .
 
 
 # Stage 2: Create the final, minimal runtime image

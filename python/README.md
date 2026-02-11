@@ -27,6 +27,9 @@ Configure MongoDB and have it run as a separate service in docker
 Plan 7:
 Extract the data Go retrieves from the queue and inserts wanted data into MongoDB
 
+Plan 8:
+Refactor code to separate business logic
+
 
 
 
