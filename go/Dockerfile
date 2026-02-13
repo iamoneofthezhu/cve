@@ -13,7 +13,10 @@ RUN go mod download
 COPY . .
 
 # Build the Go application, outputting a static binary named 'app'
-# CGO_ENABLED=0 ensures a statically linked binary compatible with 'scratch'
+# CGO_ENABLED=0 creates a statically linked binary that doesn't depend on C libraries
+# go build compiles Go source files into an executable
+# -o specifies the output file name
+# . tells compiler to look for main package in current directory
 RUN CGO_ENABLED=0 go build -o /app/app .
 
 

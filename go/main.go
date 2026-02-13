@@ -10,16 +10,22 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/oneofthezhu/cve_go/internal/cveStructs"
 	"github.com/oneofthezhu/cve_go/internal/queue"
 	"github.com/oneofthezhu/cve_go/internal/storage"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const cveQueueName = "cve_queue"
+const (
+	cveQueueName   = "cve_queue"
+	defaultWorkers = 5 // Default number of concurrent workers
+)
 
 func getSecret(pathEnv string) string {
 	filePath := os.Getenv(pathEnv)
@@ -29,6 +35,51 @@ func getSecret(pathEnv string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(content))
+}
+
+// getWorkerCount returns the number of workers from env var or default
+func getWorkerCount() int {
+	workersStr := os.Getenv("WORKER_COUNT")
+	if workersStr == "" {
+		return defaultWorkers
+	}
+	workers, err := strconv.Atoi(workersStr)
+	if err != nil || workers < 1 {
+		log.Printf("Invalid WORKER_COUNT '%s', using default %d", workersStr, defaultWorkers)
+		return defaultWorkers
+	}
+	return workers
+}
+
+// processMessage handles a single CVE message: unmarshal, transform, and insert to MongoDB
+func processMessage(ctx context.Context, mongoRepo *storage.MongoRepo, msg amqp.Delivery, workerID int) {
+	log.Printf("Worker %d processing message (length: %d bytes)", workerID, len(msg.Body))
+
+	var cve cveStructs.CVE
+	if err := json.Unmarshal(msg.Body, &cve); err != nil {
+		log.Printf("Worker %d: JSON unmarshal error: %v", workerID, err)
+		return
+	}
+
+	result, err := cveStructs.Transform(cve)
+	if err != nil {
+		log.Printf("Worker %d: Transform error: %v", workerID, err)
+		return
+	}
+
+	ictx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	err = mongoRepo.InsertOne(ictx, result)
+	if err != nil {
+		log.Printf("Worker %d: Mongo insert error: %v", workerID, err)
+		return
+	}
+
+	log.Printf("Worker %d: Successfully inserted CVE %s", workerID, result.ID)
+	b, _ := json.Marshal(result)
+	log.Printf("Worker %d: Inserted CVE %s", workerID, string(b))
+
 }
 
 func main() {
@@ -94,44 +145,43 @@ func main() {
 	}
 	log.Println("Consumer registered successfully")
 
-	log.Println("Waiting for messages...")
-	for {
-		select {
-		case <-ctx.Done():
-			// Global context was cancelled (e.g. SIGINT/SIGTERM). Time to stop.
-			log.Println("Shutting down...")
-			return
-		case msg, ok := <-msgs:
-			if !ok {
-				log.Println("RabbitMQ delivery channel closed")
-				return
-			}
+	// ---- Worker Pool: Process messages concurrently ----
+	numWorkers := getWorkerCount()
+	log.Printf("Starting %d worker goroutines for concurrent message processing", numWorkers)
 
-			log.Printf("Received message (length: %d bytes)", len(msg.Body))
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
 
-			var cve cveStructs.CVE
-			if err := json.Unmarshal(msg.Body, &cve); err != nil {
-				log.Printf("JSON unmarshal error: %v", err)
-				continue
-			}
+	// Launch worker goroutines
+	for i := 0; i < numWorkers; i++ {
+		workerID := i + 1
+		go func() {
+			defer wg.Done()
+			log.Printf("Worker %d started", workerID)
 
-			result, err := cveStructs.Transform(cve)
-			if err != nil {
-				log.Printf("Transform error: %v", err)
-				continue
+			for {
+				select {
+				case <-ctx.Done():
+					// Context cancelled, worker should stop
+					log.Printf("Worker %d shutting down", workerID)
+					return
+				case msg, ok := <-msgs:
+					if !ok {
+						// Channel closed, worker should stop
+						log.Printf("Worker %d: message channel closed", workerID)
+						return
+					}
+					// Process message concurrently
+					processMessage(ctx, mongoRepo, msg, workerID)
+				}
 			}
-
-			ictx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			err = mongoRepo.InsertOne(ictx, result)
-			cancel()
-			if err != nil {
-				log.Printf("Mongo insert error: %v", err)
-				continue
-			}
-			log.Printf("Inserted CVE %s", result.ID)
-			b, _ := json.Marshal(result)
-			log.Printf("Inserted CVE %s", b)
-		}
+		}()
 	}
+
+	log.Println("All workers started. Waiting for messages...")
+
+	// Wait for all workers to finish (they'll exit when ctx is cancelled or channel closes)
+	wg.Wait()
+	log.Println("All workers finished. Shutting down...")
 
 }

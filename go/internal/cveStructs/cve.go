@@ -5,14 +5,14 @@ import (
 )
 
 type CVE struct {
-	ID           string                `json:"id" bson:"id"`
-	Published    string                `json:"published" bson:"published"`
-	LastModified string                `json:"lastModified" bson:"lastModified"`
-	Status       string                `json:"vulnStatus" bson:"vulnStatus"`
-	Descriptions []Description         `json:"descriptions" bson:"descriptions"`
-	Metrics      CVSS                  `json:"metrics" bson:"metrics"`
-	Weaknesses   []WeaknessDescription `json:"weaknesses" bson:"weaknesses"`
-	References   []Reference           `json:"references" bson:"references"`
+	ID           string                 `json:"id" bson:"id"`
+	Published    string                 `json:"published" bson:"published"`
+	LastModified string                 `json:"lastModified" bson:"lastModified"`
+	Status       string                 `json:"vulnStatus" bson:"vulnStatus"`
+	Descriptions []Description          `json:"descriptions" bson:"descriptions"`
+	Metrics      CVSS                   `json:"metrics" bson:"metrics"`
+	Weaknesses   *[]WeaknessDescription `json:"weaknesses,omitempty" bson:"weaknesses,omitempty"`
+	References   *[]Reference           `json:"references,omitempty" bson:"references,omitempty"`
 }
 
 type Description struct {
@@ -66,8 +66,9 @@ type Reference struct {
 
 // Transform converts the raw CVE payload into the normalized document you store in Mongo.
 // It also filters to the first English description (if present) and English weaknesses.
+// englishWeaknesses and refs are initialized to an empty slice to avoid nil pointer dereference
 func Transform(cve CVE) (CVEOutput, error) {
-	var englishOnly []string
+	englishOnly := []string{}
 	for _, d := range cve.Descriptions {
 		if d.Language == "en" {
 			englishOnly = append(englishOnly, d.Value)
@@ -75,14 +76,22 @@ func Transform(cve CVE) (CVEOutput, error) {
 		}
 	}
 
-	var englishWeaknesses []string
-	for _, w := range cve.Weaknesses {
-		for _, d := range w.Description {
-			if d.Language == "en" {
-				englishWeaknesses = append(englishWeaknesses, d.Value)
-				break
+	englishWeaknesses := []string{}
+	if cve.Weaknesses != nil {
+		for _, w := range *cve.Weaknesses {
+			for _, d := range w.Description {
+				if d.Language == "en" {
+					englishWeaknesses = append(englishWeaknesses, d.Value)
+					break
+				}
 			}
 		}
+	}
+
+	// CVE.References can be nil when input JSON omits "references" (omitempty)
+	refs := []Reference{}
+	if cve.References != nil {
+		refs = *cve.References
 	}
 
 	out := CVEOutput{
@@ -93,7 +102,7 @@ func Transform(cve CVE) (CVEOutput, error) {
 		Descriptions: englishOnly,
 		Metrics:      cve.Metrics,
 		Weaknesses:   englishWeaknesses,
-		References:   cve.References,
+		References:   refs,
 	}
 
 	// quick sanity check that it can be marshalled (helps catch tag/type issues early)
@@ -103,4 +112,3 @@ func Transform(cve CVE) (CVEOutput, error) {
 
 	return out, nil
 }
-
