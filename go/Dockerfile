@@ -1,6 +1,7 @@
 # Use an official Go runtime as a parent image
 FROM golang:1.25 AS builder
 
+
 # Set the working directory inside the container
 WORKDIR /app
 
@@ -20,9 +21,12 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /app/app .
 
 
-# Stage 2: Create the final, minimal runtime image
-# Use scratch for maximum minimization and security
-FROM scratch
+# Create the final runtime image; can't use scratch because of MongoDB Atlas TLS and needs ca-certificates
+FROM debian:bookworm-slim
+
+# Install CA certificates so MongoDB Atlas TLS works
+RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
+
 
 # Copy only the compiled binary from the builder stage
 COPY --from=builder /app/app /app/app

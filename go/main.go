@@ -37,7 +37,7 @@ func getSecret(pathEnv string) string {
 	return strings.TrimSpace(string(content))
 }
 
-// getWorkerCount returns the number of workers from env var or default
+// getWorkerCount returns the number of workers from env var or default; env var is not set for now so default is used
 func getWorkerCount() int {
 	workersStr := os.Getenv("WORKER_COUNT")
 	if workersStr == "" {
@@ -53,6 +53,7 @@ func getWorkerCount() int {
 
 // processMessage handles a single CVE message: unmarshal, transform, and insert to MongoDB
 func processMessage(ctx context.Context, mongoRepo *storage.MongoRepo, msg amqp.Delivery, workerID int) {
+
 	log.Printf("Worker %d processing message (length: %d bytes)", workerID, len(msg.Body))
 
 	var cve cveStructs.CVE
@@ -91,15 +92,25 @@ func main() {
 	defer stop() // stop releases internal resources used by signal.NotifyContext
 
 	// ---- MongoDB: connect once ----
-	rootUserName := getSecret("MONGO_ROOT_USERNAME_FILE")
-	rootPassword := getSecret("MONGO_ROOT_PASSWORD_FILE")
+	//rootUserName := getSecret("MONGO_ROOT_USERNAME_FILE")
+	//rootPassword := getSecret("MONGO_ROOT_PASSWORD_FILE")
+
 	// NewMongoRepo uses ctx so that if startup is cancelled (e.g. Ctrl+C),
 	// the connection attempt will also be cancelled.
+	// mongoRepo, err := storage.NewMongoRepo(ctx, storage.MongoConfig{
+	// 	URI:        "mongodb://mongo:27017",
+	// 	AuthSource: "admin",
+	// 	Username:   rootUserName,
+	// 	Password:   rootPassword,
+	// 	Database:   "web_scraper_db",
+	// 	Collection: "cve_collection",
+	// })
+
 	mongoRepo, err := storage.NewMongoRepo(ctx, storage.MongoConfig{
-		URI:        "mongodb://mongo:27017",
+		URI:        "mongodb+srv://cluster0.pmdqc8v.mongodb.net/?appName=Cluster0",
 		AuthSource: "admin",
-		Username:   rootUserName,
-		Password:   rootPassword,
+		Username:   "mongoAtlasAdmin",
+		Password:   "q6e7oppCokTljb1W",
 		Database:   "web_scraper_db",
 		Collection: "cve_collection",
 	})
