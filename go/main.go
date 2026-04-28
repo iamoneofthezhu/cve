@@ -1,11 +1,9 @@
-//go:build !debugtest
-// +build !debugtest
-
 package main
 
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -20,12 +18,16 @@ import (
 	"github.com/oneofthezhu/cve_go/internal/queue"
 	"github.com/oneofthezhu/cve_go/internal/storage"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"google.golang.org/genai"
 )
 
 const (
 	cveQueueName   = "cve_queue"
 	defaultWorkers = 5 // Default number of concurrent workers
 )
+
+// use flag library so we can pass in model via command line without modifying the code in the future if needed
+var model = flag.String("model", "gemini-embedding-2", "the model name, e.g. text-embedding-004")
 
 func getSecret(pathEnv string) string {
 	filePath := os.Getenv(pathEnv)
@@ -51,6 +53,35 @@ func getWorkerCount() int {
 	return workers
 }
 
+func generateDescriptionEmbedding(ctx context.Context, description string) ([]float32, error) {
+	googleAIStudioAPIKey := getSecret("GOOGLE_AI_STUDIO_API_KEY_FILE")
+	if strings.TrimSpace(description) == "" {
+		return nil, nil
+	}
+	if strings.TrimSpace(googleAIStudioAPIKey) == "" {
+		return nil, fmt.Errorf("missing API key: set GOOGLE_AI_STUDIO_API_KEY_FILE to a file path containing the key")
+	}
+
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  googleAIStudioAPIKey,
+		Backend: genai.BackendGeminiAPI,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create genai client: %w", err)
+	}
+
+	res, err := client.Models.EmbedContent(ctx, *model, genai.Text(description), &genai.EmbedContentConfig{TaskType: "RETRIEVAL_DOCUMENT"})
+	if err != nil {
+		return nil, fmt.Errorf("embed content: %w", err)
+	}
+
+	if res.Embeddings != nil {
+		vector := res.Embeddings[0].Values
+		return vector, err
+	}
+	return nil, fmt.Errorf("no embedding returned")
+}
+
 // processMessage handles a single CVE message: unmarshal, transform, and insert to MongoDB
 func processMessage(ctx context.Context, mongoRepo *storage.MongoRepo, msg amqp.Delivery, workerID int) {
 
@@ -66,6 +97,20 @@ func processMessage(ctx context.Context, mongoRepo *storage.MongoRepo, msg amqp.
 	if err != nil {
 		log.Printf("Worker %d: Transform error: %v", workerID, err)
 		return
+	}
+
+	// Generate and attach the embedding vector
+	if strings.TrimSpace(result.Description) != "" {
+		ectx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		vec, err := generateDescriptionEmbedding(ectx, result.Description)
+		if err != nil {
+			log.Printf("Worker %d: embedding error: %v", workerID, err)
+		} else if len(vec) > 0 {
+			result.DescriptionEmbedding = &vec
+		} else {
+			log.Printf("Worker %d: embedding returned empty vector", workerID)
+		}
 	}
 
 	ictx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -95,8 +140,12 @@ func main() {
 	//rootUserName := getSecret("MONGO_ROOT_USERNAME_FILE")
 	//rootPassword := getSecret("MONGO_ROOT_PASSWORD_FILE")
 
+	//googleAIStudioAPIKey := getSecret("GOOGLE_AI_STUDIO_API_KEY_FILE")
+	//log.Printf("Google AI Studio API Key: %s", googleAIStudioAPIKey)
+
 	// NewMongoRepo uses ctx so that if startup is cancelled (e.g. Ctrl+C),
 	// the connection attempt will also be cancelled.
+	//connect to local MongoDB
 	// mongoRepo, err := storage.NewMongoRepo(ctx, storage.MongoConfig{
 	// 	URI:        "mongodb://mongo:27017",
 	// 	AuthSource: "admin",
@@ -106,6 +155,7 @@ func main() {
 	// 	Collection: "cve_collection",
 	// })
 
+	//connect to MongoDB Atlas
 	mongoRepo, err := storage.NewMongoRepo(ctx, storage.MongoConfig{
 		URI:        "mongodb+srv://cluster0.pmdqc8v.mongodb.net/?appName=Cluster0",
 		AuthSource: "admin",

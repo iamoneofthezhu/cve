@@ -93,14 +93,18 @@ class App:
         print(f"[extractVulnerabilitiesAndSendToRabbitMQ] Running in thread: {threading.current_thread().name}")
         App.logger.info(f"extractVulnerabilitiesAndSendToRabbitMQ data size is :{len(data)}")
         vulnerabilities = data["response"][0]["grid"]["vulnerabilities"]
-      #  for vulnerability in vulnerabilities:
-           # oneCve = vulnerability["cve"]
+        for vulnerability in vulnerabilities:
+            oneCve = vulnerability["cve"]
+            App.logger.info(f"One CVE is : {oneCve['id']} - {oneCve['descriptions'][0]['value']}")
+            App.logger.info("--------")
+            App.logger.info(oneCve)
+            self.rabbitmq_client.sendMsgRabbitMQ(oneCve)
         #oneCve = json.dumps(vulnerabilities[0]["cve"]) #converts string back to double quotes
-        oneCve = vulnerabilities[0]["cve"]
+       # oneCve = vulnerabilities[0]["cve"]
         #App.logger.info(f"One CVE is : {oneCve['id']} - {oneCve['descriptions'][0]['value']}")
-        App.logger.info("--------")
-        App.logger.info(oneCve)
-        self.rabbitmq_client.sendMsgRabbitMQ(oneCve)
+       # App.logger.info("--------")
+       # App.logger.info(oneCve)
+       # self.rabbitmq_client.sendMsgRabbitMQ(oneCve)
 
 
 def main():

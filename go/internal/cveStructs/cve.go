@@ -21,14 +21,15 @@ type Description struct {
 }
 
 type CVEOutput struct {
-	ID           string      `json:"cve_id" bson:"cve_id"`
-	Published    string      `json:"published" bson:"published"`
-	LastModified string      `json:"last_modified" bson:"last_modified"`
-	Status       string      `json:"status" bson:"status"`
-	Descriptions []string    `json:"description" bson:"description"`
-	Metrics      CVSS        `json:"metrics" bson:"metrics"`
-	Weaknesses   []string    `json:"weaknesses" bson:"weaknesses"`
-	References   []Reference `json:"references" bson:"references"`
+	ID                   string      `json:"cve_id" bson:"cve_id"`
+	Published            string      `json:"published" bson:"published"`
+	LastModified         string      `json:"last_modified" bson:"last_modified"`
+	Status               string      `json:"status" bson:"status"`
+	Description          string      `json:"description" bson:"description"`
+	DescriptionEmbedding *[]float32  `json:"description_embedding,omitempty" bson:"description_embedding,omitempty"`
+	Metrics              CVSS        `json:"metrics" bson:"metrics"`
+	Weaknesses           []string    `json:"weaknesses" bson:"weaknesses"`
+	References           []Reference `json:"references" bson:"references"`
 }
 
 type CVSS struct {
@@ -95,14 +96,18 @@ func Transform(cve CVE) (CVEOutput, error) {
 	}
 
 	out := CVEOutput{
-		ID:           cve.ID,
-		Published:    cve.Published,
-		LastModified: cve.LastModified,
-		Status:       cve.Status,
-		Descriptions: englishOnly,
-		Metrics:      cve.Metrics,
-		Weaknesses:   englishWeaknesses,
-		References:   refs,
+		ID:                   cve.ID,
+		Published:            cve.Published,
+		LastModified:         cve.LastModified,
+		Status:               cve.Status,
+		Description:          "",
+		DescriptionEmbedding: nil,
+		Metrics:              cve.Metrics,
+		Weaknesses:           englishWeaknesses,
+		References:           refs,
+	}
+	if len(englishOnly) > 0 {
+		out.Description = englishOnly[0]
 	}
 
 	// quick sanity check that it can be marshalled (helps catch tag/type issues early)
