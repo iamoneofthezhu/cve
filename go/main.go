@@ -70,7 +70,11 @@ func generateDescriptionEmbedding(ctx context.Context, description string) ([]fl
 		return nil, fmt.Errorf("create genai client: %w", err)
 	}
 
-	res, err := client.Models.EmbedContent(ctx, *model, genai.Text(description), &genai.EmbedContentConfig{TaskType: "RETRIEVAL_DOCUMENT"})
+	dim := int32(768)
+	res, err := client.Models.EmbedContent(ctx, *model, genai.Text(description), &genai.EmbedContentConfig{
+		TaskType:             "RETRIEVAL_DOCUMENT",
+		OutputDimensionality: &dim,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("embed content: %w", err)
 	}
@@ -157,10 +161,10 @@ func main() {
 
 	//connect to MongoDB Atlas
 	mongoRepo, err := storage.NewMongoRepo(ctx, storage.MongoConfig{
-		URI:        "mongodb+srv://cluster0.pmdqc8v.mongodb.net/?appName=Cluster0",
+		URI:        os.Getenv("MONGO_ATLAS_URI"),
 		AuthSource: "admin",
-		Username:   "mongoAtlasAdmin",
-		Password:   "q6e7oppCokTljb1W",
+		Username:   os.Getenv("MONGO_ATLAS_USERNAME"),
+		Password:   os.Getenv("MONGO_ATLAS_PASSWORD"),
 		Database:   "web_scraper_db",
 		Collection: "cve_collection",
 	})
