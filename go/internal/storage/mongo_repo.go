@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -45,6 +46,8 @@ func NewMongoRepo(ctx context.Context, cfg MongoConfig) (*MongoRepo, error) {
 		return nil, err
 	}
 
+	log.Printf("Mongo URI is: %s", cfg.URI)
+
 	opts := options.Client().ApplyURI(cfg.URI)
 	if strings.TrimSpace(cfg.Username) != "" || strings.TrimSpace(cfg.Password) != "" {
 		opts.SetAuth(options.Credential{
@@ -86,4 +89,3 @@ func (r *MongoRepo) InsertOne(ctx context.Context, doc any) error {
 	_, err := r.coll.InsertOne(ctx, doc)
 	return err
 }
-

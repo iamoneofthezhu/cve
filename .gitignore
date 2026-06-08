@@ -1,0 +1,22 @@
+# Secrets - never commit
+secrets/
+
+# Python
+python/__pycache__/
+python/virtualenv/
+python/rabbitmq/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Go binaries
+go/main.exe
+go/app.exe
+go/*.exe
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/.env*.local
+
+# Misc
+*.log

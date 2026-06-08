@@ -15,6 +15,7 @@ function getSecret(filePath) {
 var appUser = getSecret('/etc/mongo/db_user_username.txt');
 var appPwd = getSecret('/etc/mongo/db_user_password.txt');
 var dbName = 'web_scraper_db';
+const collectionName = 'cve_collection';
 
 const adminDb = db.getSiblingDB('admin');
 
@@ -42,9 +43,9 @@ if (userInfo.users && userInfo.users.length > 0) {
 //need to create a collection in the database so the database shows up in the mongo shell
 //add validation to the collection to ensure the data is in the correct format
 const targetDb = db.getSiblingDB(dbName);
-if (!targetDb.getCollectionNames().includes("cve_collection")) {
+if (!targetDb.getCollectionNames().includes(collectionName)) {
   print(`Creating initial collection in ${dbName}...`);
-  targetDb.createCollection("cve_collection", {
+  targetDb.createCollection(collectionName, {
     validator: {
       $jsonSchema: {
         bsonType: "object",
@@ -118,6 +119,18 @@ if (!targetDb.getCollectionNames().includes("cve_collection")) {
     }
   });
   
+  const cveCol = targetDb.collection(collectionName);
+  cveCol.createIndex({ cve_id: 1 }, { unique: true });
+  cveCol.createIndex({ published: -1 });
+  cveCol.createIndex({ last_modified: -1 });
+  cveCol.createIndex({ status: -1 });
+  cveCol.createIndex({ "metrics.cvssMetricV31.cvssData.baseScore": 1 });
+  cveCol.createIndex({ "metrics.cvssMetricV31.cvssData.baseSeverity": 1 });
+  cveCol.createIndex({ "metrics.cvssMetricV31.cvssData.attackVector": 1 });
+  cveCol.createIndex({ "metrics.cvssMetricV40.cvssData.baseScore": 1 });
+  cveCol.createIndex({ "metrics.cvssMetricV40.cvssData.baseSeverity": 1 });
+  cveCol.createIndex({ "metrics.cvssMetricV40.cvssData.attackVector": 1 });
+
   print("Database '" + dbName + "' created.");
 }
 

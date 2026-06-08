@@ -30,21 +30,25 @@ type Consumer struct {
 }
 
 func NewConsumer(cfg RabbitConfig) (*Consumer, amqp.Queue, error) {
-	if err := cfg.Validate(); err != nil {
+	err := cfg.Validate()
+	if err != nil {
 		return nil, amqp.Queue{}, err
 	}
 
+	//connect to RabbitMQ
 	conn, err := amqp.Dial(cfg.URI)
 	if err != nil {
 		return nil, amqp.Queue{}, err
 	}
 
+	//create a channel
 	ch, err := conn.Channel()
 	if err != nil {
 		_ = conn.Close()
 		return nil, amqp.Queue{}, err
 	}
 
+	// Declare a queue. RabbitMQ will not create the queue if it already exists. This way Go app doesn't depend on Python app to create the queue.
 	q, err := ch.QueueDeclare(
 		cfg.Queue,
 		cfg.Durable,
@@ -53,6 +57,7 @@ func NewConsumer(cfg RabbitConfig) (*Consumer, amqp.Queue, error) {
 		false, // no-wait
 		nil,   // args
 	)
+
 	if err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
@@ -89,4 +94,3 @@ func (c *Consumer) Consume(cfg RabbitConfig) (<-chan amqp.Delivery, error) {
 		nil,   // args
 	)
 }
-
