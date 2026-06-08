@@ -25,4 +25,4 @@ The search pipeline works as follows:
 4. MongoDB Atlas performs a vector search using the stored `description_embedding` field on each CVE document, returning the top 10 semantically closest matches.
 5. Results are displayed as cards showing CVE ID, description, published date, status, and similarity score.
 
-![CVE Search UI](screenshots/cve_search_with_filters)
+![CVE Search UI](screenshots/cve_search_with_filters.png)
