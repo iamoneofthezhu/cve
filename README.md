@@ -16,6 +16,8 @@ The same Kubernetes manifests support both Minikube and Google Cloud. Each deplo
 * Minikube: use the short image name (e.g. `go-cve`) with `imagePullPolicy: Never` so Kubernetes uses the locally built image.
 * Google Cloud: use the full Artifact Registry path (e.g. `us-central1-docker.pkg.dev/<project>/my-repo/go-cve:latest`) with `imagePullPolicy: IfNotPresent`.
 
+![CVE Search UI](screenshots/cve_search_with_filters.png)
+
 **Natural language search**
 
 The search pipeline works as follows:
