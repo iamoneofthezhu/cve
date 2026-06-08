@@ -16,8 +16,6 @@ The same Kubernetes manifests support both Minikube and Google Cloud. Each deplo
 * Minikube: use the short image name (e.g. `go-cve`) with `imagePullPolicy: Never` so Kubernetes uses the locally built image.
 * Google Cloud: use the full Artifact Registry path (e.g. `us-central1-docker.pkg.dev/<project>/my-repo/go-cve:latest`) with `imagePullPolicy: IfNotPresent`.
 
-![CVE Search UI](screenshots/cve_search_with_filters.png)
-
 **Natural language search**
 
 The search pipeline works as follows:
@@ -26,3 +24,5 @@ The search pipeline works as follows:
 3. The API generates a 768-dimension vector embedding of the query using `gemini-embedding-2`.
 4. MongoDB Atlas performs a vector search using the stored `description_embedding` field on each CVE document, returning the top 10 semantically closest matches.
 5. Results are displayed as cards showing CVE ID, description, published date, status, and similarity score.
+
+![CVE Search UI](screenshots/cve_search_with_filters.png)
