@@ -4,8 +4,19 @@ import { useState } from 'react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+const CVE_STATUSES = [
+  'Analyzed',
+  'Modified',
+  'Undergoing Analysis',
+  'Awaiting Analysis',
+  'Rejected',
+];
+
 export default function Home() {
   const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -13,17 +24,25 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      setError('Query cannot be empty.');
+      return;
+    }
 
     setLoading(true);
     setError('');
     setSearched(false);
 
+    const body = { query: query.trim() };
+    if (status) body.status = status;
+    if (dateFrom) body.date_from = dateFrom;
+    if (dateTo) body.date_to = dateTo;
+
     try {
       const res = await fetch(`${API_URL}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim() }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -58,6 +77,42 @@ export default function Home() {
           {loading ? 'Searching…' : 'Search'}
         </button>
       </form>
+
+      <div className="filters">
+        <div className="filter-group">
+          <label className="filter-label">Status</label>
+          <select
+            className="filter-select"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="">Any</option>
+            {CVE_STATUSES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label className="filter-label">Published from</label>
+          <input
+            className="filter-date"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </div>
+
+        <div className="filter-group">
+          <label className="filter-label">Published to</label>
+          <input
+            className="filter-date"
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </div>
+      </div>
 
       {error && <div className="error">{error}</div>}
 

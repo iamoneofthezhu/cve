@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pymongo import MongoClient
@@ -68,12 +69,16 @@ app.add_middleware(
 
 class QueryRequest(BaseModel):
     query: str
+    status: Optional[str] = None
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
 
 
 @app.post("/query")
 def search_cves(request: QueryRequest):
     if not request.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+        print("Received empty query — returning empty results")
+        return {"results": []}
 
     embed_response = genai_client.models.embed_content(
         model=EMBEDDING_MODEL,
@@ -85,16 +90,29 @@ def search_cves(request: QueryRequest):
     )
     query_vector = embed_response.embeddings[0].values
 
+    filter_doc = {}
+    if request.status:
+        filter_doc["status"] = request.status
+    if request.date_from or request.date_to:
+        date_filter = {}
+        if request.date_from:
+            date_filter["$gte"] = request.date_from
+        if request.date_to:
+            date_filter["$lte"] = request.date_to
+        filter_doc["published"] = date_filter
+
+    vector_search = {
+        "index": VECTOR_INDEX,
+        "path": "description_embedding",
+        "queryVector": query_vector,
+        "numCandidates": 100,
+        "limit": 10,
+    }
+    if filter_doc:
+        vector_search["filter"] = filter_doc
+
     pipeline = [
-        {
-            "$vectorSearch": {
-                "index": VECTOR_INDEX,
-                "path": "description_embedding",
-                "queryVector": query_vector,
-                "numCandidates": 100,
-                "limit": 10,
-            }
-        },
+        {"$vectorSearch": vector_search},
         {
             "$project": {
                 "cve_id": 1,
